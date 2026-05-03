@@ -6,6 +6,11 @@
       "WebFetch(domain:api.github.com)",
       "WebFetch(domain:gluon.org)",
       "WebFetch(domain:docs.zen-browser.app)"
+    ],
+    "additionalDirectories": [
+      "/Users/admin/Projects/surfer/src/utils",
+      "/Users/admin/Projects/surfer/src/commands/patches",
+      "/Users/admin/Projects/surfer"
     ]
   }
 }
