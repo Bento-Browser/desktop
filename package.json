@@ -1,0 +1,22 @@
+{
+  "name": "bento-browser",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Bento Browser — a Firefox-based browser built with @zen-browser/surfer.",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "download": "surfer download",
+    "bootstrap": "surfer bootstrap",
+    "build": "surfer build",
+    "build:ui": "surfer build --ui",
+    "package": "surfer package",
+    "lc": "surfer license-check",
+    "build:full": "bash scripts/build-bento.sh"
+  },
+  "devDependencies": {
+    "@zen-browser/surfer": "^1.14.6"
+  },
+  "license": "MPL-2.0"
+}

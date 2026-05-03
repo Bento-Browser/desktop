@@ -1,0 +1,4 @@
+# Bento Browser — Windows mozconfig.
+. "$topsrcdir/../configs/common/mozconfig"
+
+# TODO: Windows-specific flags (MSVC paths, installer signing, MOZ_AUTOMATION_PACKAGE_TESTS).

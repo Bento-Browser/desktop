@@ -1,0 +1,4 @@
+# Bento Browser — Linux mozconfig.
+. "$topsrcdir/../configs/common/mozconfig"
+
+# TODO: Linux-specific flags (PGO, distribution dirs, packaging).

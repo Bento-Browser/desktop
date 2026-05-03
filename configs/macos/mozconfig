@@ -1,0 +1,4 @@
+# Bento Browser — macOS mozconfig.
+. "$topsrcdir/../configs/common/mozconfig"
+
+# TODO: macOS-specific flags (codesigning identity, universal builds, MOZ_MACBUNDLE_NAME).

@@ -1,0 +1,37 @@
+{
+  "name": "Bento Browser",
+  "vendor": "Bento Browser",
+  "appId": "bento",
+  "binaryName": "bento",
+  "version": {
+    "product": "firefox",
+    "version": "150.0.1",
+    "candidate": "150.0.1",
+    "candidateBuild": 1
+  },
+  "buildOptions": {
+    "generateBranding": true
+  },
+  "addons": {},
+  "brands": {
+    "bento": {
+      "backgroundColor": "#ffffff",
+      "brandShorterName": "Bento",
+      "brandShortName": "Bento",
+      "brandFullName": "Bento Browser",
+      "release": {
+        "displayVersion": "0.0.0",
+        "github": {
+          "repo": "Bento-Browser/desktop"
+        }
+      }
+    }
+  },
+  "license": {
+    "ignoredFiles": [
+      ".*\\.json"
+    ],
+    "licenseType": "MPL-2.0"
+  },
+  "updateHostname": "updates.bentobrowser.app"
+}

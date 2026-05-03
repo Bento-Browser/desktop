@@ -1,1 +1,62 @@
-# desktop
+# Bento Browser
+
+A Firefox-based browser with major UI customisations, built as a true fork that
+tracks upstream Firefox releases. Build orchestration is handled by
+[`@zen-browser/surfer`](https://github.com/zen-browser/surfer).
+
+See the full project plan at [plans/bento-browser-plan.md](plans/bento-browser-plan.md).
+
+## Status
+
+Phase 0–1 scaffold. The repo skeleton, Surfer config, and build scripts are in
+place. No branding, extensions, or patches yet.
+
+## Prerequisites
+
+- Node.js 20+ (`nvm use` reads `.nvmrc`)
+- Mozilla build prerequisites — installed by `npm run bootstrap` (calls
+  `mach bootstrap` under the hood). Expect Python 3, Rust, clang, and several
+  GB of disk space.
+- ~30 GB free disk for the Firefox source tree and build artifacts.
+
+### macOS extras
+
+Surfer's `download` step shells out to GNU `tar` and `xz`, neither of which
+ship with macOS. Install both before running `npm run download`:
+
+```sh
+brew install gnu-tar xz
+```
+
+Surfer detects `gtar` automatically once it's on `PATH`.
+
+## Common commands
+
+```sh
+npm install            # install Surfer
+npm run download       # fetch Firefox source (configured version: 150.0.1)
+npm run bootstrap      # install Mozilla build deps via mach
+npm run build          # compile Bento Browser
+npm run build:ui       # UI-only rebuild (faster iteration)
+npm run package        # produce platform installers
+npm run lc             # Surfer license check
+npm run build:full     # download → bootstrap → build → package
+```
+
+## Layout
+
+| Path | Purpose |
+| --- | --- |
+| [surfer.json](surfer.json) | Surfer config (Firefox version, branding identifiers) |
+| [configs/](configs/) | Per-platform `mozconfig` fragments |
+| [branding/bento/](branding/bento/) | Bento branding assets (Phase 2) |
+| [extensions/](extensions/) | Bundled privileged extensions (Phase 3) |
+| [patches/](patches/) | Surgical Firefox source patches (Phase 4) |
+| [prefs/](prefs/) | Default pref overrides |
+| [scripts/](scripts/) | Build / release scripts |
+| [config/firefox-versions.json](config/firefox-versions.json) | Tracked upstream versions |
+| [.github/workflows/](.github/workflows/) | CI |
+
+## License
+
+MPL-2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).

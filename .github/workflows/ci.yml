@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  lint-and-license:
+    name: Lint & license check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Surfer license check
+        run: npm run lc
+
+  build:
+    name: Build (${{ matrix.os }})
+    needs: lint-and-license
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+
+      - name: Cache Firefox source (engine/)
+        uses: actions/cache@v4
+        with:
+          path: engine
+          key: ${{ runner.os }}-engine-${{ hashFiles('surfer.json') }}
+
+      - name: Surfer download
+        run: npm run download
+
+      # The full build (`npm run build`) requires the Mozilla build toolchain
+      # (Rust, clang, ~30 GB disk, ~30–60 min wall time on hosted runners).
+      # Disabled until self-hosted or beefier runners are wired up.
+      #
+      # - name: Surfer bootstrap
+      #   run: npm run bootstrap
+      # - name: Surfer build
+      #   run: npm run build
+      # - name: Surfer package
+      #   run: npm run package
+      # - uses: actions/upload-artifact@v4
+      #   with:
+      #     name: bento-${{ runner.os }}
+      #     path: dist/

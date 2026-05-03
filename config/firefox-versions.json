@@ -1,0 +1,9 @@
+{
+  "channels": [
+    {
+      "channel": "release",
+      "version": "150.0.1",
+      "surferConfig": "surfer.json"
+    }
+  ]
+}

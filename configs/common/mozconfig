@@ -1,0 +1,21 @@
+# Bento Browser — shared mozconfig fragment.
+# Sourced by every per-platform mozconfig under configs/{linux,macos,windows}/.
+
+ac_add_options --enable-application=browser
+ac_add_options --with-app-name=bento
+ac_add_options --with-app-basename=Bento
+ac_add_options --with-branding=browser/branding/bento
+
+ac_add_options --disable-crashreporter
+ac_add_options --disable-tests
+ac_add_options --disable-debug
+ac_add_options --enable-release
+
+# Disable Mozilla telemetry / signing requirements for a fork build.
+# MOZ_SERVICES_HEALTHREPORT is intentionally NOT set here — it is an "implied"
+# configure option that mach derives from other settings and rejects when
+# overridden via mozconfig. Disable health-report at runtime via prefs/bento.js
+# (datareporting.healthreport.uploadEnabled = false) instead.
+export MOZ_REQUIRE_SIGNING=
+export MOZ_TELEMETRY_REPORTING=
+export MOZ_DATA_REPORTING=
