@@ -29,7 +29,15 @@ jobs:
         # Firefox 150+ configure rejects the older macOS 14 SDK as too old.
         # ubuntu-latest = Linux x86_64.
         # windows-latest = Windows Server 2022 x86_64.
-        os: [macos-26, ubuntu-latest, windows-latest]
+        include:
+          - os: macos-26
+            build-jobs: ''
+          # GitHub-hosted Linux and Windows runners can exhaust memory when
+          # Firefox uses its default native-build parallelism.
+          - os: ubuntu-latest
+            build-jobs: '2'
+          - os: windows-latest
+            build-jobs: '2'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 180 # Firefox builds run 30–60 min on hosted runners; pad for cold caches.
     steps:
@@ -100,6 +108,7 @@ jobs:
       - name: Build release artifact
         env:
           BENTO_RELEASE: '1'
+          BENTO_BUILD_JOBS: ${{ matrix.build-jobs }}
         # build-release.sh handles platform detection, runs the full
         # ext:build → import → surfer build → surfer package chain, and
         # drops a versioned artifact into release-out/.
