@@ -121,15 +121,15 @@ BENTO_RELEASE=1 pnpm run import
 # debug output for daily iteration; release-mode is the right choice for
 # distributable artifacts. Restored by the trap on exit.
 bash scripts/surfer-env.sh set buildMode release >/dev/null
-BUILD_ARGS=()
 if [ -n "${BENTO_BUILD_JOBS:-}" ]; then
   if ! [[ "$BENTO_BUILD_JOBS" =~ ^[1-9][0-9]*$ ]]; then
     echo "build-release: BENTO_BUILD_JOBS must be a positive integer" >&2
     exit 1
   fi
-  BUILD_ARGS+=(--jobs "$BENTO_BUILD_JOBS")
+  BENTO_RELEASE=1 bash scripts/surfer-env.sh build --jobs "$BENTO_BUILD_JOBS"
+else
+  BENTO_RELEASE=1 bash scripts/surfer-env.sh build
 fi
-BENTO_RELEASE=1 bash scripts/surfer-env.sh build "${BUILD_ARGS[@]}"
 bash scripts/sync-builtin-addon-symlinks.sh
 
 step "3/4 Packaging artifact (surfer package)"
