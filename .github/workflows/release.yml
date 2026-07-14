@@ -37,7 +37,7 @@ jobs:
           - os: ubuntu-latest
             build-jobs: '1'
           - os: windows-latest
-            build-jobs: '2'
+            build-jobs: '1'
     runs-on: ${{ matrix.os }}
     # A cold optimized Firefox build can exceed three hours on hosted macOS.
     # Keep the job at GitHub's six-hour hosted-runner ceiling so the first
