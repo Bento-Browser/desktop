@@ -39,7 +39,10 @@ jobs:
           - os: windows-latest
             build-jobs: '2'
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 180 # Firefox builds run 30–60 min on hosted runners; pad for cold caches.
+    # A cold optimized Firefox build can exceed three hours on hosted macOS.
+    # Keep the job at GitHub's six-hour hosted-runner ceiling so the first
+    # successful build can populate the native object cache.
+    timeout-minutes: 360
     steps:
       - uses: actions/checkout@v4
 
