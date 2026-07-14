@@ -80,6 +80,7 @@ jobs:
           git config --global user.name "Bento CI"
           git config --global user.email "ci@bentobrowser.invalid"
           git config --global core.autocrlf false
+          git config --global core.longpaths true
 
       - name: Install MozillaBuild
         if: runner.os == 'Windows'
