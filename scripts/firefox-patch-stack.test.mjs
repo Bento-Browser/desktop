@@ -6,6 +6,7 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { createContext, refContentTree } from './firefox-patch-stack.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const scriptPath = path.join(repoRoot, 'scripts', 'firefox-patch-stack.mjs');
@@ -62,10 +63,11 @@ async function fixture(version = '1.0') {
   git(engine, ['commit', '-m', `Firefox ${version}`]);
   git(engine, ['update-ref', `refs/bento/firefox-base/${version}`, 'HEAD']);
   const tree = git(engine, ['rev-parse', 'HEAD^{tree}']);
-  return { root, engine, tree };
+  const contentTree = refContentTree(createContext(root), `refs/bento/firefox-base/${version}`);
+  return { root, engine, tree, contentTree };
 }
 
-function writeManifest(root, { version = '1.0', tree, entries, format } = {}) {
+function writeManifest(root, { version = '1.0', tree, contentTree, entries, format } = {}) {
   const manifest = {
     schemaVersion: 1,
     ...(format ? { format } : {}),
@@ -73,6 +75,7 @@ function writeManifest(root, { version = '1.0', tree, entries, format } = {}) {
       product: 'firefox',
       version,
       ...(tree ? { tree } : {}),
+      ...(contentTree ? { contentTree } : {}),
     },
     series: entries,
   };
@@ -81,6 +84,20 @@ function writeManifest(root, { version = '1.0', tree, entries, format } = {}) {
     `${JSON.stringify(manifest, null, 2)}\n`,
   );
 }
+
+test('canonical content validation accepts platform-specific executable modes', async () => {
+  const { root, engine, tree, contentTree } = await fixture();
+  git(engine, ['update-index', '--chmod=+x', 'file.txt']);
+  git(engine, ['commit', '-m', 'Platform-specific executable mode']);
+  git(engine, ['update-ref', 'refs/bento/firefox-base/1.0', 'HEAD']);
+  assert.notEqual(git(engine, ['rev-parse', 'HEAD^{tree}']), tree);
+  assert.equal(refContentTree(createContext(root), 'refs/bento/firefox-base/1.0'), contentTree);
+  writeManifest(root, { tree, contentTree, entries: [] });
+
+  const result = runFixture(root, ['check']);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stderr, /accepted platform-specific tree/);
+});
 
 function writeLegacyPatch(root, engine, patchPath, nextContent) {
   fs.writeFileSync(path.join(engine, 'file.txt'), nextContent);

@@ -75,6 +75,21 @@ jobs:
           BENTO_RELEASE: '1'
         run: pnpm install --no-frozen-lockfile
 
+      - name: Configure deterministic Firefox source checkout
+        run: |
+          git config --global user.name "Bento CI"
+          git config --global user.email "ci@bentobrowser.invalid"
+          git config --global core.autocrlf false
+
+      - name: Install MozillaBuild
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          choco install mozillabuild --version=4.2.1 --yes --no-progress
+          if (-not (Test-Path 'C:\mozilla-build\start-shell.bat')) {
+            throw 'MozillaBuild did not install at C:\mozilla-build'
+          }
+
       - name: Surfer download (Firefox source)
         run: pnpm run download
 

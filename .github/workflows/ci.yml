@@ -176,6 +176,12 @@ jobs:
           BENTO_RELEASE: '1'
         run: pnpm install --no-frozen-lockfile
 
+      - name: Configure deterministic Firefox source checkout
+        run: |
+          git config --global user.name "Bento CI"
+          git config --global user.email "ci@bentobrowser.invalid"
+          git config --global core.autocrlf false
+
       - name: Cache Firefox source (engine/)
         uses: actions/cache@v4
         with:

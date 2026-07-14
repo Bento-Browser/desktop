@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
+import crypto from 'node:crypto';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -94,6 +95,41 @@ function refTree(ctx, ref) {
   return git(['rev-parse', `${ref}^{tree}`], { cwd: ctx.engineDir });
 }
 
+export function refContentTree(ctx, ref) {
+  const result = spawnSync('git', ['ls-tree', '-r', '-z', ref], {
+    cwd: ctx.engineDir,
+    encoding: 'buffer',
+    maxBuffer: 256 * 1024 * 1024,
+    stdio: 'pipe',
+  });
+  if (result.status !== 0) {
+    const output = [result.stdout, result.stderr]
+      .filter(Boolean)
+      .map((value) => value.toString('utf8'))
+      .join('\n')
+      .trim();
+    throw new UserError(
+      `git ls-tree -r -z ${ref} failed in ${ctx.engineDir}${output ? `\n${output}` : ''}`,
+      result.status || 1,
+    );
+  }
+
+  const hash = crypto.createHash('sha256');
+  for (const record of result.stdout.subarray(0, -1).toString('utf8').split('\0')) {
+    if (!record) continue;
+    const tab = record.indexOf('\t');
+    const [mode, type, object] = record.slice(0, tab).split(' ');
+    const objectKind = mode === '120000' ? 'symlink' : mode === '160000' ? 'submodule' : type;
+    hash.update(objectKind);
+    hash.update('\0');
+    hash.update(object);
+    hash.update('\0');
+    hash.update(record.slice(tab + 1));
+    hash.update('\0');
+  }
+  return hash.digest('hex');
+}
+
 function hasRef(ctx, ref) {
   return gitOk(['rev-parse', '--verify', `${ref}^{commit}`], ctx.engineDir);
 }
@@ -164,6 +200,12 @@ function validateManifestShape(ctx, manifest) {
     if (!manifest.base.version) errors.push('base.version is required.');
     if (manifest.base.tree !== undefined && typeof manifest.base.tree !== 'string') {
       errors.push('base.tree must be a string when present.');
+    }
+    if (
+      manifest.base.contentTree !== undefined &&
+      !/^[0-9a-f]{64}$/.test(manifest.base.contentTree)
+    ) {
+      errors.push('base.contentTree must be a lowercase SHA-256 hash when present.');
     }
   }
   if (!Array.isArray(manifest.series)) {
@@ -290,9 +332,13 @@ async function downloadFirefoxArchive(ctx, version) {
 
 function extractArchive(archive, dest) {
   const candidates = process.platform === 'darwin' ? ['gtar', 'tar'] : ['tar'];
+  const args =
+    process.platform === 'win32'
+      ? ['--force-local', '-xf', archive, '-C', dest]
+      : ['-xf', archive, '-C', dest];
   let last;
   for (const command of candidates) {
-    const result = spawnSync(command, ['-xf', archive, '-C', dest], {
+    const result = spawnSync(command, args, {
       encoding: 'utf8',
       stdio: 'pipe',
     });
@@ -304,28 +350,42 @@ function extractArchive(archive, dest) {
   throw new UserError(`failed to extract ${archive}${last ? `\n${last}` : ''}`);
 }
 
-async function ensureBaseRef(ctx, version, expectedTree) {
+function assertExpectedBase(ctx, ref, expectedTree, expectedContentTree) {
+  const tree = refTree(ctx, ref);
+  if (!expectedTree || tree === expectedTree) {
+    return { tree, contentTree: expectedContentTree ? refContentTree(ctx, ref) : undefined };
+  }
+
+  const contentTree = refContentTree(ctx, ref);
+  if (expectedContentTree && contentTree === expectedContentTree) {
+    process.stderr.write(
+      `firefox-patch-stack: accepted platform-specific tree ${tree}; canonical content matches ${expectedContentTree}\n`,
+    );
+    return { tree, contentTree };
+  }
+
+  throw new UserError(
+    [
+      `${ref} tree ${tree} does not match patches/series.json base.tree ${expectedTree}.`,
+      expectedContentTree
+        ? `Canonical content tree ${contentTree} does not match ${expectedContentTree}.`
+        : 'No canonical base.contentTree fallback is recorded.',
+    ].join('\n'),
+  );
+}
+
+async function ensureBaseRef(ctx, version, expectedTree, expectedContentTree) {
   ensureEngineGit(ctx);
   const ref = baseRef(version);
   if (hasRef(ctx, ref)) {
-    const tree = refTree(ctx, ref);
-    if (expectedTree && tree !== expectedTree) {
-      throw new UserError(
-        `${ref} tree ${tree} does not match patches/series.json base.tree ${expectedTree}.`,
-      );
-    }
-    return { ref, commit: refCommit(ctx, ref), tree };
+    const validated = assertExpectedBase(ctx, ref, expectedTree, expectedContentTree);
+    return { ref, commit: refCommit(ctx, ref), ...validated };
   }
 
   if (hasRef(ctx, `refs/heads/${version}`)) {
     git(['update-ref', ref, `refs/heads/${version}`], { cwd: ctx.engineDir });
-    const tree = refTree(ctx, ref);
-    if (expectedTree && tree !== expectedTree) {
-      throw new UserError(
-        `${ref} tree ${tree} does not match patches/series.json base.tree ${expectedTree}.`,
-      );
-    }
-    return { ref, commit: refCommit(ctx, ref), tree };
+    const validated = assertExpectedBase(ctx, ref, expectedTree, expectedContentTree);
+    return { ref, commit: refCommit(ctx, ref), ...validated };
   }
 
   const archive = await downloadFirefoxArchive(ctx, version);
@@ -347,13 +407,8 @@ async function ensureBaseRef(ctx, version, expectedTree) {
     git(['add', '-A'], { cwd: sourceDir });
     git(['commit', '-m', `Firefox ${version}`], { cwd: sourceDir, stdio: 'ignore' });
     git(['fetch', sourceDir, `HEAD:${ref}`], { cwd: ctx.engineDir });
-    const tree = refTree(ctx, ref);
-    if (expectedTree && tree !== expectedTree) {
-      throw new UserError(
-        `${ref} tree ${tree} does not match patches/series.json base.tree ${expectedTree}.`,
-      );
-    }
-    return { ref, commit: refCommit(ctx, ref), tree };
+    const validated = assertExpectedBase(ctx, ref, expectedTree, expectedContentTree);
+    return { ref, commit: refCommit(ctx, ref), ...validated };
   } finally {
     await fsp.rm(tempRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 500 });
   }
@@ -420,7 +475,12 @@ function commitLegacyPatch(ctx, worktreeDir, entry) {
 }
 
 export async function materialize(ctx, manifest, options = {}) {
-  const base = await ensureBaseRef(ctx, manifest.base.version, manifest.base.tree);
+  const base = await ensureBaseRef(
+    ctx,
+    manifest.base.version,
+    manifest.base.tree,
+    manifest.base.contentTree,
+  );
   const worktreeDir = options.worktreeDir || ctx.stackWorktreeDir;
   if (!options.allowExistingWorktree) {
     assertNoActiveStackWorktree(ctx);
@@ -519,6 +579,7 @@ async function exportStack(ctx, manifest, options = {}) {
       product: targetProduct,
       version: targetVersion,
       tree: targetBase.tree,
+      contentTree: targetBase.contentTree || refContentTree(ctx, targetBase.ref),
     },
   };
   jsonWrite(ctx.manifestPath, updated);
@@ -535,7 +596,12 @@ async function commandCheck(ctx, flags) {
   if (errors.length) {
     throw new UserError(errors.join('\n'));
   }
-  const base = await ensureBaseRef(ctx, manifest.base.version, manifest.base.tree);
+  const base = await ensureBaseRef(
+    ctx,
+    manifest.base.version,
+    manifest.base.tree,
+    manifest.base.contentTree,
+  );
   await replaySeries(ctx, manifest, base.ref);
   process.stdout.write('firefox-patch-stack: check passed\n');
 }
@@ -560,7 +626,12 @@ async function commandRebase(ctx) {
   }
   const surfer = loadSurfer(ctx);
   const targetVersion = surfer.version?.version;
-  const oldBase = await ensureBaseRef(ctx, manifest.base.version, manifest.base.tree);
+  const oldBase = await ensureBaseRef(
+    ctx,
+    manifest.base.version,
+    manifest.base.tree,
+    manifest.base.contentTree,
+  );
   const targetBase = await ensureBaseRef(ctx, targetVersion);
 
   await materialize(ctx, manifest);
@@ -610,7 +681,7 @@ async function commandApply(ctx) {
     throw new UserError(errors.join('\n'));
   }
   ensureEngineGit(ctx);
-  await ensureBaseRef(ctx, manifest.base.version, manifest.base.tree);
+  await ensureBaseRef(ctx, manifest.base.version, manifest.base.tree, manifest.base.contentTree);
   for (const entry of manifest.series) {
     try {
       applyPatchToWorktree(ctx, ctx.engineDir, entry.path);
@@ -645,7 +716,7 @@ export async function main(argv = process.argv.slice(2), options = {}) {
   }
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main().catch((error) => {
     if (error instanceof UserError) {
       process.stderr.write(`${error.message}\n`);
