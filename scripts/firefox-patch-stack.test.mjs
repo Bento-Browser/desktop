@@ -162,6 +162,7 @@ test('legacy plain diff patch materializes into one commit', async () => {
 
 test('mail-style format-patch file materializes correctly', async () => {
   const { root, engine, tree } = await fixture();
+  const originalBranch = git(engine, ['branch', '--show-current']);
   git(engine, ['switch', '-c', 'mail']);
   fs.writeFileSync(path.join(engine, 'file.txt'), 'mail\n');
   git(engine, ['commit', '-am', 'Mail patch']);
@@ -174,7 +175,7 @@ test('mail-style format-patch file materializes correctly', async () => {
     'HEAD',
   ]);
   fs.writeFileSync(path.join(root, 'patches/area/01.patch'), patch);
-  git(engine, ['switch', 'main']);
+  git(engine, ['switch', originalBranch]);
   writeManifest(root, {
     tree,
     entries: [{ path: 'patches/area/01.patch', id: 'mail', subject: 'Mail patch' }],
