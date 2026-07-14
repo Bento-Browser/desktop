@@ -55,7 +55,7 @@ jobs:
 
       # Cache mach build artifacts so an incremental release that only
       # changes Bento extensions doesn't re-link the entire engine. The
-      # key is keyed on the surfer SHA + patches (the things that affect
+      # key is keyed on the exact build-tool package/config + patches (the things that affect
       # native compile output) and intentionally NOT on github.sha, so
       # commits that only touch extensions/, scripts/, or branding/ hit
       # the cache and skip the multi-hour relink step.

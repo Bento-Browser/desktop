@@ -214,4 +214,5 @@ case "$PLATFORM" in
     ;;
 esac
 
+node scripts/check-product-identity.mjs "$OUT_DIR"
 step "Done. Release artifact: $OUT"
